@@ -229,7 +229,7 @@ namespace CTAG::SP::HELPERS {
         totalSize = hdr[1];
         numberSlices = hdr[2];
         headerSize = 12;
-        ESP_LOGI("SROM", "%s: %" PRIu32 " slices, %" PRIu32 " bytes of sample data",
+        ESP_LOGI("SROM", "%s: %" PRIu32 " slices, %" PRIu32 " samples",
                  SDCard::SampleRomPath(),
                  numberSlices, totalSize);
         if (numberSlices == 0 || numberSlices > 0x100000) {
@@ -241,15 +241,18 @@ namespace CTAG::SP::HELPERS {
         }
         // the slice offset table sits between the fixed header and the sample data
         size_t dataStart = headerSize + (size_t) numberSlices * 4;
-        if (dataStart + (size_t) totalSize > fileSize) {
-            ESP_LOGE("SROM", "%s is truncated: %" PRIu32 " bytes of sample data announced,"
-                             " %u present", SDCard::SampleRomPath(), totalSize,
+        // The ROM header and slice offsets count int16 samples, not bytes. Widen
+        // before multiplying so a malformed header cannot wrap the byte count.
+        const uint64_t dataBytes = (uint64_t) totalSize * sizeof(int16_t);
+        if (dataBytes > UINT32_MAX || dataStart > fileSize || dataBytes > fileSize - dataStart) {
+            ESP_LOGE("SROM", "%s has an invalid sample length: %" PRIu64 " bytes announced,"
+                             " %u present", SDCard::SampleRomPath(), dataBytes,
                      fileSize > dataStart ? (unsigned) (fileSize - dataStart) : 0u);
             totalSize = 0;
             numberSlices = 0;
             return;
         }
-        sampleBytes = totalSize;
+        sampleBytes = (uint32_t) dataBytes;
 
         uint32_t *offsets = AllocOffsetTable(numberSlices);
         if (offsets == nullptr) {
