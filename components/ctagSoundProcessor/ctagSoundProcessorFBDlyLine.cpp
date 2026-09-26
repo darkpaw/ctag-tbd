@@ -21,7 +21,8 @@ respective component folders / files if different from this license.
 
 
 #include "ctagSoundProcessorFBDlyLine.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 #include "helpers/ctagFastMath.hpp"
 

@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorMIDifu.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include "helpers/ctagFastMath.hpp"
 
 using namespace CTAG::SP;

@@ -16,7 +16,10 @@
 #define RAPIDJSON_ALLOCATORS_H_
 
 #include "rapidjson.h"
-#include <iostream>
+// <iostream> used to be included here. It is not needed by anything in this file, but
+// since nearly every source file pulls in a rapidjson header, it caused std::ios_base::Init
+// to be emitted in almost every translation unit, which in turn links libstdc++'s complete
+// locale/facet instantiation (~130 KiB) into the app image. See SerialAPI::sendString().
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 

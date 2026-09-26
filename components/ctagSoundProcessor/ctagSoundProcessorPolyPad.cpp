@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorPolyPad.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cstring>
 #include <algorithm>
 #include <cmath>

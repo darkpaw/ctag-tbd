@@ -21,7 +21,8 @@ respective component folders / files if different from this license.
 
 
 #include "ctagSoundProcessorDust.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 #include "dsps_biquad_gen.h"
 #include "dsps_biquad.h"

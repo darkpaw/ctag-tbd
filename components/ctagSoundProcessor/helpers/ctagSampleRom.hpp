@@ -45,7 +45,19 @@ namespace CTAG::SP::HELPERS{
         void ReadSliceAsFloat(float *dst, const uint32_t slice, const uint32_t offset, const uint32_t n_samples);
         void BufferInSPIRAM();
         bool IsBufferedInSPIRAM();
+        // Bytes of 16bit mono sample data the medium holds (SD file / raw flash region).
+        static uint32_t GetAvailableBytes();
+        // Bytes of sample data that can be resident at one time, i.e. the size limit a
+        // sample ROM has to respect. With CONFIG_TBD_SD_ENABLE this is what fits into PSRAM,
+        // not the capacity of the SD card.
+        static uint32_t GetPlayableBytes();
+        // Bytes of sample data currently resident and therefore audible.
+        static uint32_t GetLoadedBytes();
     private:
+        // SD backend only: reads header and slice table from the ROM file and preloads as
+        // much sample data into PSRAM as fits. Not declared anywhere else, so builds without
+        // CONFIG_TBD_SD_ENABLE simply never reference it.
+        static void RefreshFromSDCard();
         static uint32_t totalSize;
         static uint32_t numberSlices;
         static uint32_t headerSize;
@@ -54,6 +66,12 @@ namespace CTAG::SP::HELPERS{
         static uint32_t firstNonWtSlice;
         static atomic<uint32_t>  nConsumers;
         static int16_t *ptrSPIRAM;
+        // number of int16 samples of the ROM that are resident in ptrSPIRAM. Read() only
+        // ever touches samples below this number, which is what keeps an audio task out of a
+        // buffer that is being (re)loaded.
+        static uint32_t preloadedSamples;
+        // bytes of sample data described by the ROM header (excludes header and slice table)
+        static uint32_t sampleBytes;
         static uint32_t nSlicesBuffered;
     };
 }

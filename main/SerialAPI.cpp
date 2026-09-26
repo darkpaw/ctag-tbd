@@ -1,11 +1,14 @@
 #include "SerialAPI.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
+#include <unistd.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include <atomic>
 #include <cstdint>
 #include "SPManager.hpp"
+#include "helpers/ctagSampleRom.hpp"
 #include "Favorites.hpp"
 #include "Calibration.hpp"
 #include "driver/gpio.h"
@@ -234,7 +237,10 @@ void CTAG::SAPI::SerialAPI::processAPICommand(const string &cmd) {
      */
     // sample rom API
     if(s.find("/api/v1/srom/getSize") == 0){
-        sendString(to_string(CONFIG_SAMPLE_ROM_SIZE));
+        // Same number as the web UI: what can actually be played. With an SD card sample
+        // ROM that is the PSRAM budget, not CONFIG_SAMPLE_ROM_SIZE, which describes a raw
+        // flash region that does not exist on the 4 MiB boards.
+        sendString(to_string(CTAG::SP::HELPERS::ctagSampleRom::GetPlayableBytes()));
         return;
     }
     // TODO: implement sample rom write with serial api, it is super slow...
@@ -270,9 +276,15 @@ void CTAG::SAPI::SerialAPI::processAPICommand(const string &cmd) {
 }
 
 void CTAG::SAPI::SerialAPI::sendString(const string &s) {
-    string cmd = stx + s + etx;
-    cout << cmd;
-    cout.flush();
+    // Was "cout << cmd; cout.flush();" - the only real stream use in the whole firmware.
+    // Just including <iostream> makes the compiler emit std::ios_base::Init in every
+    // translation unit, which drags in libstdc++'s full locale/facet instantiation:
+    // ~130 KiB of locale-inst.o / wlocale-inst.o / shim_facets.o in the app image, which
+    // a 4 MiB flash cannot spare. stdout is the same UART0 the const char* overload below
+    // writes to, so nothing about the serial protocol changes.
+    const string cmd = stx + s + etx;
+    fwrite(cmd.data(), 1, cmd.size(), stdout);
+    fflush(stdout);
 }
 
 void CTAG::SAPI::SerialAPI::sendString(const char* s) {

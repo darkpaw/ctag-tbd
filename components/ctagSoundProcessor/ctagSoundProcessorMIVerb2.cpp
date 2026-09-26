@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorMIVerb2.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include "clouds/dsp/frame.h"
 #include "helpers/ctagFastMath.hpp"
 #include "esp_log.h"

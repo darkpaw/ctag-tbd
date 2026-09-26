@@ -21,7 +21,8 @@ respective component folders / files if different from this license.
 
 
 #include "ctagSoundProcessorHihat1.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 #include "helpers/ctagFastMath.hpp"
 

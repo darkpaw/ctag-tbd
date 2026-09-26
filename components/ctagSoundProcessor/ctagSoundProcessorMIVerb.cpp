@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorMIVerb.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include "esp_heap_caps.h"
 #include "helpers/ctagFastMath.hpp"
 #include "esp_log.h"

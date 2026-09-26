@@ -28,7 +28,8 @@ respective component folders / files if different from this license.
 
 // --- Module dependant includes ---
 #include "ctagSoundProcessorSubbotnik.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 #include "braids/quantizer_scales.h"
 

@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorGVerb.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 
 using namespace CTAG::SP;

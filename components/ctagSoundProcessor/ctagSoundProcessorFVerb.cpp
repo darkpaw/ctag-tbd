@@ -25,7 +25,8 @@ respective component folders / files if different from this license.
 //
 
 #include "ctagSoundProcessorFVerb.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 
 using namespace CTAG::SP;

@@ -1,5 +1,6 @@
 #include "ctagSoundProcessorMISVF.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 
 using namespace CTAG::SP;

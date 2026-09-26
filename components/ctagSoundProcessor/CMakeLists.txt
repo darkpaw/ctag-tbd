@@ -73,9 +73,13 @@ if (TBD_SIM)
     add_library(ctagsp STATIC ${SRCS_FILES})
     target_include_directories(ctagsp PRIVATE . ${CMAKE_BINARY_DIR}/gen_include)
 else ()
+    # drivers is listed unconditionally: ctagSampleRom includes sdcard.hpp under
+    # CONFIG_TBD_SD_ENABLE, but component dependencies are resolved independently of the
+    # kconfig state, so a requirement guarded by a CONFIG_ symbol can silently be missing
+    # from the graph. Same reason sdmmc/fatfs are unconditional in components/drivers.
     idf_component_register(SRCS ${SRCS_FILES}
             INCLUDE_DIRS . ${CMAKE_BINARY_DIR}/gen_include
-            PRIV_REQUIRES rapidjson esp-dsp mutable moog spi_flash)
+            PRIV_REQUIRES rapidjson esp-dsp mutable moog spi_flash drivers)
     target_compile_options(${COMPONENT_LIB} PRIVATE
             -Wno-unused-local-typedefs
             -ffast-math

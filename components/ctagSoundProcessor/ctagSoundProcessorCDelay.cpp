@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorCDelay.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include "braids/svf.h"
 
 using namespace CTAG::SP;

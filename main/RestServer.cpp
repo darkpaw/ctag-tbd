@@ -30,6 +30,7 @@ respective component folders / files if different from this license.
 */
 #include "RestServer.hpp"
 #include <string.h>
+#include <cinttypes>
 #include <fcntl.h>
 #include "esp_system.h"
 #include "esp_heap_caps.h"
@@ -42,6 +43,10 @@ respective component folders / files if different from this license.
 #include "OTAManager.hpp"
 #include "sdkconfig.h"
 #include "esp_flash.h"
+#include "helpers/ctagSampleRom.hpp"
+#ifdef CONFIG_TBD_SD_ENABLE
+#include "sdcard.hpp"
+#endif
 
 using namespace CTAG;
 using namespace CTAG::REST;
@@ -782,18 +787,46 @@ esp_err_t RestServer::srom_handler(httpd_req_t *req) {
     ESP_LOGE("REST", "Sample ROM command: %s", cmd.c_str());
 
     if(cmd.compare("getSize") == 0){
+        // The web UI treats this as "how big may a sample ROM be" and turns it into seconds
+        // of audio, so it has to be the amount of sample data that can actually be played.
+        // With a raw flash ROM that is the flash region, with an SD card ROM it is whatever
+        // fits into PSRAM - the size of the card would be meaningless here.
+        uint32_t playable = CTAG::SP::HELPERS::ctagSampleRom::GetPlayableBytes();
+        ESP_LOGI("REST", "Sample ROM: %" PRIu32 " bytes playable, %" PRIu32 " bytes resident, %"
+                             PRIu32 " bytes on the medium",
+                 playable, CTAG::SP::HELPERS::ctagSampleRom::GetLoadedBytes(),
+                 CTAG::SP::HELPERS::ctagSampleRom::GetAvailableBytes());
+#ifdef CONFIG_TBD_SD_ENABLE
+        ESP_LOGI("REST", "SD card: %u KiB free on %s",
+                 (unsigned) (CTAG::DRIVERS::SDCard::FreeBytes() / 1024),
+                 CONFIG_TBD_SD_MOUNT_POINT);
+#endif
+        string size = to_string(playable);
         httpd_resp_set_type(req, "text/plain");
-        httpd_resp_sendstr(req, to_string(CONFIG_SAMPLE_ROM_SIZE).c_str());
+        httpd_resp_sendstr(req, size.c_str());
         return ESP_OK;
     }
 
     if(cmd.compare("erase") == 0){
         CTAG::AUDIO::SoundProcessorManager::DisablePluginProcessing();
         CTAG::FAV::Favorites::DisableFavoritesUI();
+#ifdef CONFIG_TBD_SD_ENABLE
+        // The SD equivalent of erasing a raw flash region is truncating the ROM file. It is
+        // instant, so unlike the flash version it does not need any of the timing care.
+        ESP_LOGI("REST", "Deleting the sample ROM file on the SD card!");
+        if (!(CTAG::DRIVERS::SDCard::CreateSampleRom()
+              && CTAG::DRIVERS::SDCard::CloseSampleRom())) {
+            ESP_LOGE("REST", "Could not truncate the sample ROM file!");
+        }
+        // also drop the image that is currently in memory, otherwise the module keeps
+        // playing the old ROM until the next reboot
+        CTAG::AUDIO::SoundProcessorManager::RefreshSampleRom();
+#else
         // erase flash / lengthy operation
         ESP_LOGI("REST", "Erasing flash start %d, size %d!", CONFIG_SAMPLE_ROM_START_ADDRESS, CONFIG_SAMPLE_ROM_SIZE);
         //ESP_ERROR_CHECK(spi_flash_erase_range(CONFIG_SAMPLE_ROM_START_ADDRESS, CONFIG_SAMPLE_ROM_SIZE));
         ESP_ERROR_CHECK(esp_flash_erase_region(NULL, CONFIG_SAMPLE_ROM_START_ADDRESS, CONFIG_SAMPLE_ROM_SIZE));
+#endif
         httpd_resp_set_type(req, "text/html");
         httpd_resp_send(req, NULL, 0);
         CTAG::FAV::Favorites::EnableFavoritesUI();
@@ -802,7 +835,11 @@ esp_err_t RestServer::srom_handler(httpd_req_t *req) {
     }
 
     if(cmd.compare("upRaw") == 0){
+#ifdef CONFIG_TBD_SD_ENABLE
+        ESP_LOGI("REST", "Sample ROM upload to the SD card!");
+#else
         ESP_LOGI("REST", "Sample ROM flashing!");
+#endif
         int data_read, remaining = req->content_len, offset = 0;
         char *buffer = (char*)heap_caps_malloc(4096, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if(buffer == NULL){
@@ -811,44 +848,71 @@ esp_err_t RestServer::srom_handler(httpd_req_t *req) {
         }
         CTAG::AUDIO::SoundProcessorManager::DisablePluginProcessing();
         CTAG::FAV::Favorites::DisableFavoritesUI();
+#ifdef CONFIG_TBD_SD_ENABLE
+        // Plugin processing is stopped for the whole transfer, which is also what makes it
+        // safe for the refresh at the end to release the image being played right now.
+        if (!CTAG::DRIVERS::SDCard::CreateSampleRom()) {
+            ESP_LOGE("REST", "Cannot create %s on the SD card!",
+                     CTAG::DRIVERS::SDCard::SampleRomPath());
+            httpd_resp_send_500(req);
+            heap_caps_free(buffer);
+            CTAG::FAV::Favorites::EnableFavoritesUI();
+            CTAG::AUDIO::SoundProcessorManager::EnablePluginProcessing();
+            return ESP_FAIL;
+        }
+#endif
         int blockCnt = 0;
+        bool failed = false;
         while (remaining > 0) {
             // Read the data for the request
             uint32_t size = remaining > 4096 ? 4096 : remaining;
             data_read = httpd_req_recv(req, buffer, size);
             if (data_read < 0) {
-                httpd_resp_send_500(req);
-                heap_caps_free(buffer);
-                CTAG::FAV::Favorites::EnableFavoritesUI();
-                CTAG::AUDIO::SoundProcessorManager::EnablePluginProcessing();
-                heap_caps_free(buffer);
-                return ESP_ERR_INVALID_ARG;
+                failed = true;
             } else if (data_read > 0) {
+                if (blockCnt == 0 && ((uint32_t*)buffer)[0] != 0xdeadface) {
+                    ESP_LOGE("REST", "Not a valid sample rom file!");
+                    failed = true;
+                }
+#ifdef CONFIG_TBD_SD_ENABLE
+                if (!failed && CTAG::DRIVERS::SDCard::WriteSampleRom(buffer, data_read)
+                               != (size_t) data_read) {
+                    ESP_LOGE("REST", "Writing the sample ROM to the SD card failed (card full?)!");
+                    failed = true;
+                }
+#else
                 //spi_flash_write(CONFIG_SAMPLE_ROM_START_ADDRESS + offset, buffer, data_read);
-                esp_flash_write(NULL, buffer, CONFIG_SAMPLE_ROM_START_ADDRESS + offset, data_read);
+                if (!failed)
+                    esp_flash_write(NULL, buffer, CONFIG_SAMPLE_ROM_START_ADDRESS + offset, data_read);
+#endif
             }
             offset += data_read;
             remaining -= data_read;
-            if(blockCnt == 0){
-                if(((uint32_t*)buffer)[0] != 0xdeadface){
-                    ESP_LOGE("REST", "Not a valid sample rom file!");
-                    httpd_resp_send_500(req);
-                    heap_caps_free(buffer);
-                    CTAG::FAV::Favorites::EnableFavoritesUI();
-                    CTAG::AUDIO::SoundProcessorManager::EnablePluginProcessing();
-                    heap_caps_free(buffer);
-                    return ESP_ERR_INVALID_ARG;
-                }
-            }
             blockCnt++;
+            if (failed) break;
         }
+#ifdef CONFIG_TBD_SD_ENABLE
+        // closing is what flushes FAT, so a half written file must be reported
+        if (!CTAG::DRIVERS::SDCard::CloseSampleRom()) failed = true;
+#endif
         heap_caps_free(buffer);
+        if (failed) {
+            httpd_resp_send_500(req);
+#ifdef CONFIG_TBD_SD_ENABLE
+            // do not leave a truncated ROM behind for the next boot to trip over
+            CTAG::DRIVERS::SDCard::CreateSampleRom();
+            CTAG::DRIVERS::SDCard::CloseSampleRom();
+#endif
+            CTAG::FAV::Favorites::EnableFavoritesUI();
+            CTAG::AUDIO::SoundProcessorManager::EnablePluginProcessing();
+            return ESP_FAIL;
+        }
         httpd_resp_set_type(req, "text/html");
         httpd_resp_send(req, NULL, 0);
         CTAG::AUDIO::SoundProcessorManager::RefreshSampleRom();
         CTAG::FAV::Favorites::EnableFavoritesUI();
         CTAG::AUDIO::SoundProcessorManager::EnablePluginProcessing();
-        ESP_LOGI("REST", "Sample ROM flashing completed!");
+        ESP_LOGI("REST", "Sample ROM transfer completed (%i bytes)!", offset);
         return ESP_OK;
     }
 

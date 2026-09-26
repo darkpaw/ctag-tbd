@@ -26,7 +26,8 @@ respective component folders / files if different from this license.
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "ctagDataModelBase.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <memory>
 #include <vector>
 

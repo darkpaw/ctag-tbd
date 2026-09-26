@@ -27,10 +27,32 @@ respective component folders / files if different from this license.
 #include "rapidjson/writer.h"
 #include "rapidjson/filereadstream.h"
 #include <cstdio>
-#include <regex>
+#include <string>
 #include "ctagDataModelBase.hpp"
 
 #define MB_BUF_SZ 4096
+
+// Replaces every occurrence of "from" with "to", i.e. maps a /data/ path onto the
+// matching /dbup/ factory backup.
+// This is deliberately not std::regex_replace(): std::regex instantiates regex_traits,
+// which uses std::ctype/std::collate facets and therefore links libstdc++'s locale
+// machinery (over 100 KiB) in addition to the regex code generation itself. On a 4 MiB
+// flash the difference is significant, and a filename does not need a regex engine.
+static std::string ReplaceAll(const std::string &in, const std::string &from,
+                              const std::string &to) {
+    if (from.empty()) return in;
+    std::string out;
+    size_t pos = 0;
+    size_t found = in.find(from);
+    while (found != std::string::npos) {
+        out.append(in, pos, found - pos);
+        out.append(to);
+        pos = found + from.length();
+        found = in.find(from, pos);
+    }
+    out.append(in, pos, std::string::npos);
+    return out;
+}
 
 void CTAG::SP::ctagDataModelBase::loadJSON(Document &d, const string &fn) {
     d.GetAllocator().Clear();
@@ -56,7 +78,7 @@ void CTAG::SP::ctagDataModelBase::loadJSON(Document &d, const string &fn) {
     // CONTENTS OF SPIFFS_IMAGE/DATA
     // IF THIS HAPPENS, ALL CONTENTS OF THE AFFECTED FILE ARE RESET TO FACTORY DEFAULT
     if(d.HasParseError()){
-        string backup_file_name = std::regex_replace(fn, std::regex("data"), "dbup");
+        string backup_file_name = ReplaceAll(fn, "data", "dbup");
         ESP_LOGE("JSON", "File %s has a parse error!", fn.c_str());
         ESP_LOGE("JSON", "Trying to replace with backup file %s", backup_file_name.c_str());
         fp = fopen(backup_file_name.c_str(), "r");

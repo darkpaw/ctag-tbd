@@ -84,15 +84,17 @@ esp_err_t OTAManager::PostHandlerApp(httpd_req_t *req) {
              running->type, running->subtype, running->address);
 
     update_partition = esp_ota_get_next_update_partition(NULL);
-    ESP_LOGD("OTA", "Writing to partition subtype %i at offset 0x%li",
-             update_partition->subtype, update_partition->address);
-
+    // The log line below used to run *before* this check. On a single app partition
+    // layout (4 MiB boards have no second OTA slot) esp_ota_get_next_update_partition()
+    // returns NULL, so that dereference crashed as soon as debug logging was enabled.
     if (update_partition == NULL) {
-        ESP_LOGE("OTA", "OTA update partition error!");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error OTA error!");
+        ESP_LOGE("OTA", "No OTA partition available, updates have to go over the serial port!");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No OTA partition on this device!");
         cleanup();
         return ESP_ERR_OTA_BASE;
     }
+    ESP_LOGD("OTA", "Writing to partition subtype %i at offset 0x%li",
+             update_partition->subtype, update_partition->address);
 
     esp_err_t err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (err != ESP_OK) {

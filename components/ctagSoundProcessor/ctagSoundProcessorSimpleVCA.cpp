@@ -20,7 +20,8 @@ respective component folders / files if different from this license.
 ***************/
 
 #include "ctagSoundProcessorSimpleVCA.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 
 
 using namespace CTAG::SP;

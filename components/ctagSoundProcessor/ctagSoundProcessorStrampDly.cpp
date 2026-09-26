@@ -22,7 +22,8 @@ respective component folders / files if different from this license.
 
 #include "ctagSoundProcessorStrampDly.hpp"
 #include "esp_heap_caps.h"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 #include "helpers/ctagFastMath.hpp"
 #include "esp_log.h"

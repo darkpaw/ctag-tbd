@@ -68,6 +68,125 @@ menu "CTAG TBD Configuration"
                 TBD-Platform V1: 0x500000 (ESP32)
                 TBD-Platform BBA: 0x1500000 (ESP32-S3)
 
+        menu "SD Card"
+            config TBD_SD_ENABLE
+                bool "Enable SD card (1 bit SDMMC)"
+                default n
+                help
+                    Mounts a FAT formatted SD card on the mount point below.
+                    Used as bulk store for the sample ROM on hardware which has too
+                    little system flash to keep a raw sample ROM region in it, e.g.
+                    Strampler boards built with a 4 MiB ESP32-WROVER.
+                    Requires CONFIG_SDMMC_USE_GPIO_MATRIX=y unless clk/cmd/d0 are the
+                    ESP32 SDMMC IOMUX pins (clk=14, cmd=15, d0=2).
+
+            config TBD_SD_CLK_PIN
+                int "SD card CLK GPIO"
+                depends on TBD_SD_ENABLE
+                default 14
+                help
+                    Strampler: IO14. These are the ESP32 SDMMC IOMUX pins, which is
+                    what the board is wired for (esp32-eurorack-audio: SD.sch), so no
+                    GPIO matrix is involved and full clock speed is available.
+
+            config TBD_SD_CMD_PIN
+                int "SD card CMD GPIO"
+                depends on TBD_SD_ENABLE
+                default 15
+
+            config TBD_SD_D0_PIN
+                int "SD card D0 GPIO"
+                depends on TBD_SD_ENABLE
+                default 2
+                help
+                    Strampler: IO2. Note that IO2 is also driven by Q303 in the
+                    CP2102N auto reset network (USB.sch), so toggling DTR/RTS, e.g. by
+                    attaching a serial monitor, pulls D0 low for a moment. The shipped
+                    Strampler firmware has the same sharing and works, but if SD reads
+                    ever show CRC errors, that transistor is the first suspect.
+
+            config TBD_SD_POWER_PIN
+                int "SD card power / reset GPIO (-1 unused)"
+                depends on TBD_SD_ENABLE
+                default -1
+                help
+                    If the card socket is behind a power switch, this pin is toggled
+                    on start up to bring the card into a known state.
+
+            config TBD_SD_INTERNAL_PULLUP
+                bool "Use ESP32 internal pull ups on cmd/d0"
+                depends on TBD_SD_ENABLE
+                default n
+                help
+                    Strampler has 10k external pull ups on DAT0/CLK/CMD (R401..R403
+                    on SD.sch), so the weak internal ones are not needed.
+
+            config TBD_SD_FREQ_KHZ
+                int "SD card clock in kHz"
+                depends on TBD_SD_ENABLE
+                default 40000
+                range 400 40000
+                help
+                    40000 = SDMMC_FREQ_HIGHSPEED, which the Strampler SD wiring supports.
+                    Limited to 20000 if the pins are moved off the IOMUX pins and
+                    CONFIG_SDMMC_USE_GPIO_MATRIX is required.
+
+            config TBD_SD_MOUNT_POINT
+                string "SD card mount point"
+                depends on TBD_SD_ENABLE
+                default "/sdcard"
+
+            config TBD_SD_SAMPLE_ROM_FILE
+                string "Sample ROM file name on the SD card"
+                depends on TBD_SD_ENABLE
+                default "sample-rom.tbd"
+                help
+                    Same binary format as the sample-rom.tbd files the web UI produces
+                    and downloads, i.e. it can be copied onto a card with a PC.
+
+            config TBD_SD_MAX_FILES
+                int "Maximum number of open files on the SD card"
+                depends on TBD_SD_ENABLE
+                default 6
+
+            config TBD_SD_BOUNCE_BUF_SIZE
+                int "SD transfer bounce buffer size in bytes"
+                depends on TBD_SD_ENABLE
+                default 65536
+                help
+                    Allocated from internal DMA capable RAM. SDMMC can not DMA into
+                    PSRAM on ESP32, so sample data is staged through this buffer.
+
+            config TBD_SD_ROM_RESERVE_KB
+                int "PSRAM kept free when preloading the sample ROM (KiB)"
+                depends on TBD_SD_ENABLE
+                default 256
+                help
+                    The sample ROM is played from PSRAM: it is loaded from the card into
+                    memory at startup and after an upload, and the audio task only ever
+                    reads that copy. This is the PSRAM deliberately left to everything
+                    else (plugins, effect buffers, Web UI).
+
+                    A ROM larger than the remaining PSRAM is loaded as far as it fits and
+                    plays silence beyond that, which is reported in the log and in the
+                    sample ROM page of the Web UI.
+        endmenu
+
+        config TBD_STORAGE_BACKUP
+            bool "Keep a factory backup of the preset data (dbup) on the storage partition"
+            default n if TBD_PLATFORM_STR
+            default y
+            help
+                The build copies spiffs_image/data to dbup/ inside the LittleFS image.
+                ctagDataModelBase reads a file from dbup/ when its /data/ counterpart
+                fails to parse (for example after the module lost power during a flash
+                write) and otherwise falls back to compiled in defaults.
+
+                That copy costs roughly 440 KiB. On the 4 MiB flash of the Strampler
+                boards this space is needed by the app image, so it is disabled for
+                TBD_PLATFORM_STR. Recovery still works, it just starts from the built
+                in defaults instead of the shipped presets.
+
         config SP_FIXED_MEM_ALLOC_SZ
             int "Sound Processor Fixed Memory Alloc Size"
             default 114688

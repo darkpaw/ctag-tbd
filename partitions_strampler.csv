@@ -1,0 +1,26 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+#
+# 4 MiB flash layout for Strampler boards built with a 4MB ESP32-WROVER module.
+# The sample ROM is NOT part of this table - it lives on the SD card
+# (CONFIG_TBD_SD_ENABLE), which is what frees the space the 16MB layout spends on
+# 5 MiB of raw sample flash.
+#
+# Measured app image (IDF 5.4, full plugin set, -O2, assertions on): 0x2A35A0 = 2.64 MiB.
+# Two of those do not fit into 4 MiB, so Wifi OTA is off the table here and the app is a
+# single factory partition. Firmware updates go over USB/serial.
+#
+# storage content is fixed by the build (see the copy-files target in CMakeLists.txt):
+#   www/  gzipped by the build  : 207 KiB
+#   data/ (presets, calibration): 438 KiB
+#   dbup/ (copy of data/)       : disabled on Strampler via CONFIG_TBD_STORAGE_BACKUP
+#   => ~645 KiB + file system metadata in 1.19 MiB, rest is free for user patches,
+#      favourites and calibration written at runtime.
+#
+# If the app grows past 0x2C0000, either trim the build (plugins, log level) or move the
+# storage boundary down. Do not go below ~0x100000 for storage.
+nvs,      data, nvs,      0x9000,   0x4000
+otadata,  data, ota,      0xd000,   0x2000
+phy_init, data, phy,      0xf000,   0x1000
+app,      app,  factory,  0x10000,  0x2C0000
+storage,  data, spiffs,   0x2D0000, 0x130000
+# total: 0x400000 (4 MiB)

@@ -72,6 +72,14 @@ static void IRAM_ATTR ulp_isr(void *arg) {
     CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);
 
 #ifdef CONFIG_TBD_PLATFORM_STR
+    // The ULP program (ulp/mcp3208.S) reserves 8 consecutive 32bit words with
+    //   adc_data: .skip 32
+    // in RTC slow memory, but the generated ulp_drivers.h always declares the first
+    // symbol as a plain scalar "uint32_t ulp_adc_data". Walking past it below is
+    // therefore correct but looks like an overrun to the compiler, which gcc 12+
+    // turns into a hard error. The code itself is unchanged.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
     data[0] = (uint16_t) *((&ulp_adc_data) + 0);
     data[1] = (uint16_t) *((&ulp_adc_data) + 1);
     data[2] = (uint16_t) *((&ulp_adc_data) + 2);
@@ -80,6 +88,7 @@ static void IRAM_ATTR ulp_isr(void *arg) {
     data[5] = (uint16_t) *((&ulp_adc_data) + 6);
     data[6] = (uint16_t) *((&ulp_adc_data) + 5);
     data[7] = (uint16_t) *((&ulp_adc_data) + 7);
+#pragma GCC diagnostic pop
 #else
     for(int i=0; i < N_CVS; i++){
         data[i] = (uint16_t) *((&ulp_adc_data) + i);

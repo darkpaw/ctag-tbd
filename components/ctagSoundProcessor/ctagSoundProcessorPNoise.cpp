@@ -21,7 +21,8 @@ respective component folders / files if different from this license.
 
 
 #include "ctagSoundProcessorPNoise.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 

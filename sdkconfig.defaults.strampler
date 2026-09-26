@@ -85,10 +85,10 @@ CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_ESPTOOLPY_FLASHFREQ="80m"
 # CONFIG_ESPTOOLPY_FLASHSIZE_1MB is not set
 # CONFIG_ESPTOOLPY_FLASHSIZE_2MB is not set
-# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set
-CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
-CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 CONFIG_ESPTOOLPY_FLASHSIZE_DETECT=y
 CONFIG_ESPTOOLPY_BEFORE_RESET=y
 # CONFIG_ESPTOOLPY_BEFORE_NORESET is not set
@@ -113,11 +113,34 @@ CONFIG_ESPTOOLPY_MONITOR_BAUD=115200
 # CONFIG_PARTITION_TABLE_SINGLE_APP is not set
 # CONFIG_PARTITION_TABLE_TWO_OTA is not set
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_example.csv"
-CONFIG_PARTITION_TABLE_FILENAME="partitions_example.csv"
+# 4 MiB layout, sample ROM moved to the SD card.
+# Use partitions_strampler_ota.csv instead once the app image size is known to fit 1.5 MiB.
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_strampler.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_strampler.csv"
 CONFIG_PARTITION_TABLE_OFFSET=0x8000
 CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
+
+#
+# SD Card (1 bit SDMMC) - sample ROM bulk store
+#
+CONFIG_TBD_SD_ENABLE=y
+# clk=IO14, cmd=IO15, d0=IO2: the ESP32 SDMMC IOMUX pins, per esp32-eurorack-audio
+# SD.sch. The board has 10k external pull ups, no card detect and no power switch,
+# i.e. the card must be inserted before the module is reset.
+CONFIG_TBD_SD_CLK_PIN=14
+CONFIG_TBD_SD_CMD_PIN=15
+CONFIG_TBD_SD_D0_PIN=2
+CONFIG_TBD_SD_POWER_PIN=-1
+# CONFIG_TBD_SD_INTERNAL_PULLUP is not set
+CONFIG_TBD_SD_FREQ_KHZ=40000
+CONFIG_TBD_SD_MOUNT_POINT="/sdcard"
+CONFIG_TBD_SD_SAMPLE_ROM_FILE="sample-rom.tbd"
+CONFIG_TBD_SD_MAX_FILES=6
+CONFIG_TBD_SD_BOUNCE_BUF_SIZE=65536
+# The pins above are the IOMUX pins, so no GPIO matrix is needed and the full 40MHz
+# SDMMC clock is available. Only if the pins are moved elsewhere, uncomment:
+# CONFIG_SDMMC_USE_GPIO_MATRIX=y
 
 #
 # CTAG TBD Configuration
@@ -129,6 +152,10 @@ CONFIG_TBD_PLATFORM_STR=y
 # CONFIG_TBD_PLATFORM_MK2 is not set
 CONFIG_WIFI_UI=y
 # CONFIG_SERIAL_UI is not set
+# raw flash sample ROM: dead on a 4 MiB part (0xB00000 is off-chip).
+# Kept at the Kconfig defaults, they become unused once ctagSampleRom reads from
+# the SD card (see CONFIG_TBD_SD_ENABLE). The flash based erase/write paths in
+# RestServer must not be used until then.
 CONFIG_SAMPLE_ROM_START_ADDRESS=0xB00000
 CONFIG_SAMPLE_ROM_SIZE=0x500000
 # end of CTAG TBD Configuration
@@ -535,13 +562,16 @@ CONFIG_FATFS_CODEPAGE_437=y
 # CONFIG_FATFS_CODEPAGE_949 is not set
 # CONFIG_FATFS_CODEPAGE_950 is not set
 CONFIG_FATFS_CODEPAGE=437
-CONFIG_FATFS_LFN_NONE=y
-# CONFIG_FATFS_LFN_HEAP is not set
-# CONFIG_FATFS_LFN_STACK is not set
+# long file names are mandatory, "sample-rom.tbd" does not fit into 8.3
+CONFIG_FATFS_LFN_HEAP=y
+# CONFIG_FATFS_LFN_NONE is not set
+CONFIG_FATFS_MAX_LFN=255
 CONFIG_FATFS_FS_LOCK=0
 CONFIG_FATFS_TIMEOUT_MS=10000
 CONFIG_FATFS_PER_FILE_CACHE=y
-CONFIG_FATFS_ALLOC_PREFER_EXTRAM=y
+# FATFS must not put its own sector window buffers into PSRAM: they are handed to
+# SDMMC for DMA, and ESP32 DMA can not reach PSRAM.
+# CONFIG_FATFS_ALLOC_PREFER_EXTRAM is not set
 # end of FAT Filesystem support
 
 #

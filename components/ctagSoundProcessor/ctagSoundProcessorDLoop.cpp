@@ -22,7 +22,8 @@ respective component folders / files if different from this license.
 
 #include "ctagSoundProcessorDLoop.hpp"
 #include "helpers/ctagFastMath.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <cmath>
 
 using namespace CTAG::SP;

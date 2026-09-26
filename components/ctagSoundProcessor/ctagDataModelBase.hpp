@@ -23,7 +23,8 @@ respective component folders / files if different from this license.
 #pragma once
 
 #include <string>
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <memory>
 #include <vector>
 #include "rapidjson/document.h"

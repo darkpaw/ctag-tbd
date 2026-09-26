@@ -27,6 +27,9 @@ respective component folders / files if different from this license.
 #include "esp_log.h"
 #include "adc.hpp"
 #include "fs.hpp"
+#ifdef CONFIG_TBD_SD_ENABLE
+#include "sdcard.hpp"
+#endif
 #include "led_rgb.hpp"
 #include "gpio.hpp"
 
@@ -61,6 +64,12 @@ void app_main() {
 
     // init fs
     DRIVERS::FileSystem::InitFS();
+
+#ifdef CONFIG_TBD_SD_ENABLE
+    // sample ROM bulk store, has to be mounted before the sound processors are
+    // created as those read the sample ROM data structure on construction
+    DRIVERS::SDCard::InitSDCard();
+#endif
 
 #ifndef CONFIG_TBD_PLATFORM_STR
     DRIVERS::LedRGB::InitLedRGB();

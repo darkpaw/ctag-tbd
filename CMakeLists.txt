@@ -68,6 +68,14 @@ if(NOT CONFIG_TBD_PLATFORM_BBA)
     list(APPEND DEL_COMMANDS
             COMMAND rm -f ${CMAKE_BINARY_DIR}/spiffs_image/dbup/sp/*DrumRack.jsn)
 endif()
+# Backup copy of the preset data ("dbup"), see TBD_STORAGE_BACKUP. It doubles the size of
+# data/ inside the LittleFS image, which the 4 MiB Strampler flash cannot afford.
+if(CONFIG_TBD_STORAGE_BACKUP)
+    set(DBUP_COMMAND
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/spiffs_image/data ${CMAKE_BINARY_DIR}/spiffs_image/dbup
+            )
+endif()
+
 add_custom_target(copy-files ALL DEPENDS ${CMAKE_SOURCE_DIR}/spiffs_image
         # clean up
         COMMAND rm -rf ${CMAKE_BINARY_DIR}/spiffs_image
@@ -76,7 +84,7 @@ add_custom_target(copy-files ALL DEPENDS ${CMAKE_SOURCE_DIR}/spiffs_image
         # create gzip encoded www files
         ${GZIP_COMMANDS}
         # and create backup file structure (sometimes when the ESP's power is interrupted during flash writes, the SPIFFS file gets corrupted)
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/spiffs_image/data ${CMAKE_BINARY_DIR}/spiffs_image/dbup
+        ${DBUP_COMMAND}
         ${DEL_COMMANDS}
         )
 

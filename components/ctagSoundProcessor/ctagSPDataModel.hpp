@@ -24,7 +24,8 @@ respective component folders / files if different from this license.
 
 #include <string>
 #include "ctagDataModelBase.hpp"
-#include <iostream>
+#include <cstdio>
+#include <string>
 #include <memory>
 #include <vector>
 
