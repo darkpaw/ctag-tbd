@@ -354,12 +354,15 @@ namespace CTAG::SP::HELPERS {
         //spi_flash_read(CONFIG_SAMPLE_ROM_START_ADDRESS + 4, &totalSize, 4);
         esp_flash_read(nullptr,&totalSize, CONFIG_SAMPLE_ROM_START_ADDRESS + 4, 4);
         headerSize += 4;
-        ESP_LOGD("SROM", "Total sample data size %li bytes", totalSize);
+        // Header field 1 counts int16 samples, it is not a byte count. The wording here
+        // said bytes for a long time, which is easy to pick up by accident.
+        ESP_LOGD("SROM", "Total sample data size %" PRIu32 " samples", totalSize);
         //spi_flash_read(CONFIG_SAMPLE_ROM_START_ADDRESS + 8, &numberSlices, 4);
         esp_flash_read(nullptr, &numberSlices, CONFIG_SAMPLE_ROM_START_ADDRESS + 8, 4);
         headerSize += 4;
         ESP_LOGD("SROM", "Number slices %li", numberSlices);
-        sampleBytes = totalSize;
+        const uint64_t dataBytes = (uint64_t) totalSize * sizeof(int16_t);
+        sampleBytes = dataBytes > UINT32_MAX ? UINT32_MAX : (uint32_t) dataBytes;
         // alloc memory
         sliceOffsets = (uint32_t *) heap_caps_malloc(numberSlices * sizeof(uint32_t), MALLOC_CAP_SPIRAM);
         assert(sliceOffsets != nullptr);
